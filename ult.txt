@@ -1,0 +1,213 @@
+1. Docker ou GitHub Actions:
+Eu sugiro o Docker, pois ele fornece um ambiente isolado e padronizado para rodar a aplicação. Isso é ideal para evitar problemas relacionados ao ambiente local. Além disso:
+
+Docker: Cria um contêiner onde tudo já está configurado (Java, servidor, dependências). Fácil para rodar localmente ou em qualquer máquina.
+
+GitHub Actions: Melhor para automação, como testes contínuos ou deploy, mas não é tão direto para rodar localmente.
+
+Vou preparar um arquivo Dockerfile para simplificar a configuração do ambiente.
+
+Estrutura simplificada:
+Vamos colocar todos os arquivos em uma única pasta para reduzir complexidade e facilitar a navegação.
+
+Aplicação em português:
+Os nomes e arquivos serão traduzidos para português, assim como os comentários explicativos.
+
+Passos completos:
+Eu vou detalhar todos os passos, incluindo como configurar e rodar a aplicação. Agora, vou reformular tudo:
+
+Código atualizado e explicado
+Estrutura do projeto
+plaintext
+/
+  conexaoBanco.java
+  servletLogin.java
+  servletSaldo.java
+  index.html
+  pagina_usuario.html
+  estilos.css
+  web.xml
+  Dockerfile
+1. Conexão com o banco (conexaoBanco.java)
+Esta classe gerencia a conexão com o banco de dados. Ela garante que todas as operações possam acessar o banco.
+
+java
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+
+public class conexaoBanco {
+    private static final String URL = "jdbc:mysql://maglev.proxy.rlwy.net:12233/railway";
+    private static final String USUARIO = "root";
+    private static final String SENHA = "EdeIpjCqgYqgJLzKWaoJjxaicgWUgYum";
+
+    public static Connection obterConexao() throws SQLException {
+        return DriverManager.getConnection(URL, USUARIO, SENHA);
+    }
+}
+2. Servlet para login (servletLogin.java)
+Este servlet recebe email e senha, verifica se são válidos no banco de dados e redireciona o usuário para a próxima página.
+
+java
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+public class servletLogin extends HttpServlet {
+    @Override
+    protected void doPost(HttpServletRequest requisicao, HttpServletResponse resposta) throws ServletException, IOException {
+        String email = requisicao.getParameter("email");
+        String senha = requisicao.getParameter("senha");
+
+        try (Connection conn = conexaoBanco.obterConexao()) {
+            String consulta = "SELECT * FROM MainTableConjurDemo WHERE email = ? AND senha = ?";
+            PreparedStatement stmt = conn.prepareStatement(consulta);
+            stmt.setString(1, email);
+            stmt.setString(2, senha);
+
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                resposta.sendRedirect("pagina_usuario.html");
+            } else {
+                PrintWriter out = resposta.getWriter();
+                out.println("<html><body><h3>Login falhou. Verifique suas credenciais.</h3></body></html>");
+            }
+        } catch (Exception e) {
+            throw new ServletException("Erro no login", e);
+        }
+    }
+}
+3. Servlet para exibir saldo (servletSaldo.java)
+Este servlet retorna o saldo do usuário com base no email.
+
+java
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+public class servletSaldo extends HttpServlet {
+    @Override
+    protected void doGet(HttpServletRequest requisicao, HttpServletResponse resposta) throws ServletException, IOException {
+        String email = requisicao.getParameter("email");
+
+        try (Connection conn = conexaoBanco.obterConexao()) {
+            String consulta = "SELECT saldo FROM MainTableConjurDemo WHERE email = ?";
+            PreparedStatement stmt = conn.prepareStatement(consulta);
+            stmt.setString(1, email);
+
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                int saldo = rs.getInt("saldo");
+                PrintWriter out = resposta.getWriter();
+                out.println("<html><body><h3>Seu saldo é: " + saldo + "</h3></body></html>");
+            } else {
+                resposta.getWriter().println("Usuário não encontrado.");
+            }
+        } catch (Exception e) {
+            throw new ServletException("Erro ao buscar saldo", e);
+        }
+    }
+}
+4. Páginas HTML
+index.html (Login)
+html
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Login</title>
+    <link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+    <h1>Login</h1>
+    <form action="servletLogin" method="post">
+        <input type="text" name="email" placeholder="Email" required>
+        <input type="password" name="senha" placeholder="Senha" required>
+        <button type="submit">Entrar</button>
+    </form>
+</body>
+</html>
+pagina_usuario.html (Saldo)
+html
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Página do Usuário</title>
+    <link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+    <h1>Bem-vindo!</h1>
+    <button onclick="exibirSaldo()">Exibir Saldo</button>
+    <div id="saldo"></div>
+
+    <script>
+        function exibirSaldo() {
+            fetch('servletSaldo')
+                .then(response => response.text())
+                .then(data => document.getElementById('saldo').innerHTML = data);
+        }
+    </script>
+</body>
+</html>
+5. Arquivo de estilo (estilos.css)
+css
+body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    margin: 20px;
+}
+
+input, button {
+    margin: 10px;
+    padding: 10px;
+}
+6. Configuração (web.xml)
+xml
+<web-app>
+    <servlet>
+        <servlet-name>servletLogin</servlet-name>
+        <servlet-class>servletLogin</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>servletLogin</servlet-name>
+        <url-pattern>/servletLogin</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>servletSaldo</servlet-name>
+        <servlet-class>servletSaldo</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>servletSaldo</servlet-name>
+        <url-pattern>/servletSaldo</url-pattern>
+    </servlet-mapping>
+</web-app>
+7. Dockerfile
+O Dockerfile cria o ambiente perfeito para sua aplicação.
+
+dockerfile
+FROM tomcat:9.0
+COPY . /usr/local/tomcat/webapps/demo
+EXPOSE 8080
+Como rodar:
+Instale Docker.
+
+Navegue até a pasta do projeto e execute:
+
+bash
+docker build -t demo-app .
+docker run -p 8080:8080 demo-app
+Abra no navegador: http://localhost:8080/demo.
