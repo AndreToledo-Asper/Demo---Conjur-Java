@@ -3,8 +3,8 @@ import java.net.*;
 
 public class Main {
     public static void main(String[] args) {
-        try (ServerSocket server = new ServerSocket(8080)) {
-            System.out.println("Servidor rodando na porta 8080...");
+        try (ServerSocket server = new ServerSocket(8081)) { // Porta alterada para 8081
+            System.out.println("Servidor rodando na porta 8081...");
 
             while (true) {
                 try (Socket client = server.accept()) {
